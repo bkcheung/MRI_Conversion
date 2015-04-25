@@ -1,2 +1,2 @@
 # MRI_Conversion
-File for all aspects of conversion from MRI to G code
+Compilation of code used for converting from MRI/Dicom to STL and G code
