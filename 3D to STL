@@ -1,0 +1,328 @@
+/*************information header*******************
+Usage: convert <filename> -originalformat -neededfoamart -s
+for example convert "../filename" -off -stl -s
+
+Title: convert 3D mesh formats.
+read in formats: .ply .stl .off .obj
+write formats: .ply .stl
+ 
+Purpose: convert 3D mesh formats from .off and .obj to .ply or .stl 
+
+Author: Jia Wu
+
+Start date: June 7, 2011
+
+Input: <img> file, read format , output format, -s
+		
+Output: img.output format
+ 
+Usage: convert filename -obj -stl 
+		
+Algorithm description or paper citation: 
+
+Comments: -s or -S is optional, -s showing image; -S showing and save image
+
+*//////// end of informational header ///////////
+
+
+#include "vtkMath.h"
+#include "vtkRenderer.h"
+#include "vtkRenderWindow.h"
+#include "vtkRenderWindowInteractor.h"
+#include "vtkStructuredGrid.h"
+#include "vtkContourFilter.h"
+#include "vtkPoints.h"
+#include "vtkPolyDataMapper.h"
+#include "vtkActor.h"
+#include "vtkLookupTable.h"
+#include "vtkPolyDataNormals.h"
+#include "vtkFloatArray.h"
+#include "vtkTIFFWriter.h"
+#include "vtkWindowToImageFilter.h"
+#include "vtkPolyData.h"
+#include "vtkProperty.h"
+#include "vtkCamera.h"
+#include "vtkCellArray.h"
+#include "vtkPointData.h"
+#include "vtkInteractorStyleTrackballCamera.h"
+#include "vtkLODActor.h"
+#include "vtkOBJReader.h"
+#include "vtkSTLReader.h"
+#include "vtkPLYReader.h"
+#include "vtkTriangleFilter.h"
+#include "vtkPLYWriter.h"
+#include "vtkSTLWriter.h"
+
+void saveTiffImage(vtkRenderWindow *renWin, char *filename);
+vtkPolyDataAlgorithm* readFileOFF(char* file_name);
+vtkPolyDataAlgorithm* readFileSTL(char* file_name);
+vtkPolyDataAlgorithm* readFilePLY(char* file_name);
+vtkPolyDataAlgorithm* readFileOBJ(char* file_name);
+void writeFilePLY(char* file_name,vtkPolyDataAlgorithm* indata);
+void writeFileSTL(char* file_name,vtkPolyDataAlgorithm* indata);
+
+int main( int argc, char *argv[] )
+{
+
+	char   fn_name[80];
+	char writefiename[80];
+	vtkPolyDataAlgorithm *original_data = vtkPolyDataAlgorithm::New();
+
+  if(argc < 2 || argc > 5)
+  {
+      cout << "convert <object name> <input format> <output format>" << endl;
+      cout << "ex) convert filename -obj -stl" << endl <<endl;
+      exit(0);
+  }
+  if(argc > 3)
+  {
+	  cout << "reading " << argv[2];
+	  if( !(strcmp("-obj", argv[2]) && strcmp("-OBJ", argv[2])) )
+	  {
+		  //input obj file
+		  cout << "reading obj";
+		  sprintf(fn_name,"%s.obj", argv[1]);
+		  original_data = readFileOBJ(fn_name);
+
+	  }
+	  else if ( !(strcmp("-ply", argv[2]) && strcmp("-PLY", argv[2])))
+		  {
+			  //input ply file
+			  cout << "reading ply";
+			  sprintf(fn_name,"%s.ply", argv[1]);
+			  original_data = readFilePLY(fn_name);
+		  }
+			else if (!(strcmp("-off", argv[2]) && strcmp("-OFF", argv[2])))
+			{
+				//input off file
+				cout << "reading off";
+				sprintf(fn_name,"%s.off", argv[1]);
+				original_data = readFileOFF(fn_name);
+			}
+			else if (!(strcmp("-stl", argv[2]) && strcmp("-STL", argv[2]))) 
+				{
+					//input stl file
+					cout << "reading stl";
+					sprintf(fn_name,"%s.stl", argv[1]);
+					original_data = readFileSTL(fn_name);
+				}
+			else {
+				cout << "\t Input must be stl or ply or off or obj " <<endl << endl;
+				}
+	
+	
+    if (strcmp("-stl", argv[3]) && strcmp("-STL", argv[3])) 
+	{
+		if (strcmp("-ply", argv[3]) && strcmp("-PLY", argv[3]))
+		{
+			cout << "\t Output must be stl or ply " <<endl << endl;
+		}
+		else
+		{
+			  //output ply file
+			sprintf(writefiename,"%s.ply", argv[1]);
+			writeFilePLY(writefiename,original_data);
+
+		}
+	}
+	else
+	{
+		//output stl file
+		sprintf(writefiename,"%s.stl", argv[1]);
+		writeFileSTL(writefiename,original_data);
+
+	}
+  }
+  else
+  {
+      //default
+	  cout << "take obj file and output stl file" << endl <<endl;
+  }
+
+
+
+  if((argc >= 2) && (!strcmp("-S", argv[argc - 1]) || !strcmp("-s", argv[argc - 1])))
+  {
+	  
+	  cout << "Showing images" << endl;
+	  vtkRenderer *renderer = vtkRenderer::New();
+	  vtkRenderWindow *renWin = vtkRenderWindow::New();
+	  
+	  
+	  vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::New();
+	  vtkLookupTable *lut = vtkLookupTable::New();
+	  vtkPolyDataMapper *objMapper = vtkPolyDataMapper::New();
+	  
+      objMapper->SetLookupTable(lut);
+      objMapper->SetInputConnection(original_data->GetOutputPort());
+ 	  vtkLODActor *objActor = vtkLODActor::New();
+      objActor->SetMapper(objMapper);
+      objActor->GetProperty()->SetColor(0,1,0);
+	  objActor->VisibilityOn();
+	  
+	  renderer->AddActor(objActor);
+	  renderer->SetBackground(1,1,1);
+	//  renderer->ResetCameraClippingRange(bounds);
+	  // renderer->GetActiveCamera()->Elevation(60.0);
+	  // renderer->GetActiveCamera()->Azimuth(30.0);
+	 // renderer->GetActiveCamera()->Zoom(1);
+	   renWin->AddRenderer(renderer);
+	  
+	  renWin->SetSize(800, 800);
+	//  renWin->SetPosition(0, 0);
+	  renderer->SetViewport(0,0,1,1);//, where each coordinate is 0 <= coordinate <= 1->0	
+
+	  iren->SetRenderWindow(renWin);
+	  
+	  vtkInteractorStyleTrackballCamera *style = vtkInteractorStyleTrackballCamera::New();
+	  iren->SetInteractorStyle(style);
+	  
+	  // renWin->Render();
+	  iren->Start();
+	  
+	  if(!strcmp("-S", argv[argc - 1]))
+	  {
+  	  char tif_fname[100];
+	  sprintf(tif_fname, "%s", argv[1]);
+	  saveTiffImage(renWin, tif_fname);
+	  }
+	 
+	
+	  renderer->Delete();
+	  renWin->Delete();
+	  iren->Delete();
+	  objMapper->Delete();
+	  objActor->Delete();
+	 }
+
+  return 0;
+
+}
+//
+// save the current image rendered in a window in TIFF format
+//
+void saveTiffImage(vtkRenderWindow *renWin, char *filename)
+{
+    char save_filename[100];
+    sprintf(save_filename, "%s.tif", filename);
+
+	// upgrade from 2.X to 4.0
+	vtkWindowToImageFilter *w2if = vtkWindowToImageFilter::New(); 
+	vtkTIFFWriter *tiffw = vtkTIFFWriter::New(); 
+	w2if->SetInput(renWin);
+	tiffw->SetInput(w2if->GetOutput());
+	tiffw->SetFileName(save_filename); 
+	tiffw->Write(); 
+
+	return;
+}
+
+//read .OFF files
+vtkPolyDataAlgorithm* readFileOFF(char* file_name)
+{
+	//triagnlate file
+	vtkTriangleFilter *triangles = vtkTriangleFilter::New();
+	
+	
+	vtkPolyData *poly = vtkPolyData::New(); 
+	vtkPoints *points = vtkPoints::New(); 
+	vtkCellArray *polys = vtkCellArray::New(); 
+	float p[3];
+	FILE *in = fopen(file_name,"r"); 
+	if(!in) return triangles;
+	
+	int n_pts,n_polys; 
+	
+	fscanf(in,"OFF\n%d %d 0\n",&n_pts,&n_polys);
+	
+	
+	// read the points from the file float p[3]; 
+	int i,j; 
+	
+	for(i=0;i<n_pts;i++) 
+	{ 
+		fscanf(in,"%f %f %f\n",&p[0],&p[1],&p[2]); 
+		points->InsertPoint(i,p); 
+	} 
+	
+	for(i=0;i<n_polys;i++) 
+	{ 
+		vtkIdType n_vertices; 
+		fscanf(in,"%d ",&n_vertices); 
+		polys->InsertNextCell(n_vertices); 
+		vtkIdType vertex_id; 
+		
+		for(j=0;j<n_vertices;j++) 
+		{ 
+			fscanf(in,"%d ",&vertex_id); 
+			polys->InsertCellPoint(vertex_id); 
+		} 
+	} 
+	
+	poly->SetPoints(points); 
+	points->Delete(); 
+	poly->SetPolys(polys); 
+	polys->Delete();
+	
+	triangles->SetInput(poly);
+	triangles->Update();
+	//data->Update();
+	cout << "finish read";
+	
+	return triangles;
+}
+
+vtkPolyDataAlgorithm* readFileSTL(char* file_name)
+{
+	//load stl file
+	vtkSTLReader *data = vtkSTLReader::New();
+	data->SetFileName(file_name);
+	data->Update();
+	return data;
+}
+
+vtkPolyDataAlgorithm* readFilePLY(char* file_name)
+{
+	//load stl file
+	vtkPLYReader *data = vtkPLYReader::New();
+	data->SetFileName(file_name);
+	data->Update();
+	return data;
+}
+
+vtkPolyDataAlgorithm* readFileOBJ(char* file_name)
+{
+	//load stl file
+	vtkOBJReader *data = vtkOBJReader::New();
+	data->SetFileName(file_name);
+	data->Update();
+	return data;
+}
+
+
+void writeFilePLY(char* file_name,vtkPolyDataAlgorithm* indata)
+{
+	//write ply file
+	vtkPLYWriter *data = vtkPLYWriter::New();
+	data->SetInput(indata->GetOutput());
+	data->SetFileName(file_name);
+	data->SetFileType(2);
+	data->Write();
+	data->Delete();
+}
+
+void writeFileSTL(char* file_name,vtkPolyDataAlgorithm* indata)
+{
+	//triagnlate file
+	vtkTriangleFilter *triangles = vtkTriangleFilter::New();
+	triangles->SetInputConnection(indata->GetOutputPort());
+	triangles->Update();
+
+	//write stl file
+	vtkSTLWriter *data = vtkSTLWriter::New();
+	data->SetInput(triangles->GetOutput());
+	data->SetFileName(file_name);
+	data->SetFileType(2);
+	data->Write();
+	data->Delete();
+}
