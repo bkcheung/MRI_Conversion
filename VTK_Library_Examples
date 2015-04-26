@@ -1,0 +1,109 @@
+//VTPReader.py
+reader = vtk.vtkXMLPolyDataReader()
+       path = os.path.join(constant.BASE_DIR, "archive.vtp") #Archive path
+       reader.SetFileName(path)
+       reader.Update()
+ 
+       mapper = vtk.vtkPolyDataMapper()
+       mapper.SetInput(reader.GetOutput())
+ 
+       actor = vtk.vtkActor()
+       actor.SetMapper(mapper)
+
+
+
+//UnstructuredGridReader.py
+
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# by Panos Mavrogiorgos, email: pmav99 <> gmail
+ 
+from vtk import *
+ 
+# The source file
+file_name = "uGridEx.vtk"
+ 
+# Read the source file.
+reader = vtkUnstructuredGridReader()
+reader.SetFileName(file_name)
+reader.Update() # Needed because of GetScalarRange
+output = reader.GetOutput()
+scalar_range = output.GetScalarRange()
+ 
+# Create the mapper that corresponds the objects of the vtk file
+# into graphics elements
+mapper = vtkDataSetMapper()
+mapper.SetInput(output)
+mapper.SetScalarRange(scalar_range)
+ 
+# Create the Actor
+actor = vtkActor()
+actor.SetMapper(mapper)
+ 
+# Create the Renderer
+renderer = vtkRenderer()
+renderer.AddActor(actor)
+renderer.SetBackground(1, 1, 1) # Set background to white
+ 
+# Create the RendererWindow
+renderer_window = vtkRenderWindow()
+renderer_window.AddRenderer(renderer)
+ 
+# Create the RendererWindowInteractor and display the vtk_file
+interactor = vtkRenderWindowInteractor()
+interactor.SetRenderWindow(renderer_window)
+interactor.Initialize()
+interactor.Start()
+
+
+
+
+
+
+
+//Writer.py
+#!/usr/bin/env python
+ 
+import vtk
+ 
+filename = "test.stl"
+ 
+sphereSource = vtk.vtkSphereSource()
+sphereSource.Update()
+ 
+# Write the stl file to disk
+stlWriter = vtk.vtkSTLWriter()
+stlWriter.SetFileName(filename)
+stlWriter.SetInputConnection(sphereSource.GetOutputPort())
+stlWriter.Write()
+ 
+# Read and display for verification
+reader = vtk.vtkSTLReader()
+reader.SetFileName(filename)
+ 
+mapper = vtk.vtkPolyDataMapper()
+if vtk.VTK_MAJOR_VERSION <= 5:
+    mapper.SetInput(reader.GetOutput())
+else:
+    mapper.SetInputConnection(reader.GetOutputPort())
+ 
+actor = vtk.vtkActor()
+actor.SetMapper(mapper)
+ 
+# Create a rendering window and renderer
+ren = vtk.vtkRenderer()
+renWin = vtk.vtkRenderWindow()
+renWin.AddRenderer(ren)
+ 
+# Create a renderwindowinteractor
+iren = vtk.vtkRenderWindowInteractor()
+iren.SetRenderWindow(renWin)
+ 
+# Assign actor to the renderer
+ren.AddActor(actor)
+ 
+# Enable user interface interactor
+iren.Initialize()
+renWin.Render()
+iren.Start()
